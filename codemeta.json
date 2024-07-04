@@ -1,0 +1,268 @@
+{
+    "@context": [
+        "https://doi.org/10.5063/schema/codemeta-2.0",
+        "https://w3id.org/software-iodata",
+        "https://raw.githubusercontent.com/jantman/repostatus.org/master/badges/latest/ontology.jsonld",
+        "https://schema.org",
+        "https://w3id.org/software-types"
+    ],
+    "@type": "SoftwareSourceCode",
+    "author": [
+        {
+            "@type": "Chokri Ben Romdhane",
+            "email": "chokribr@gmail.com",
+            "familyName": "",
+            "givenName": "CNUDST"
+        }
+    ],
+    "codeRepository": "https://github.com/inveniosoftware/invenio-app-rdm",
+    "description": "Invenio Research Data Management.",
+    "developmentStatus": "https://www.repostatus.org/#active",
+    "identifier": "invenio-app-rdm",
+    "keywords": "invenio-app-rdm Invenio",
+    "license": "http://spdx.org/licenses/MIT",
+    "name": "invenio-app-rdm",
+    "runtimePlatform": "Python 3",
+    "softwareRequirements": [
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "CairoSVG<3.0.0",
+            "name": "CairoSVG<3.0.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "Sphinx",
+            "name": "Sphinx",
+            "runtimePlatform": "Python 3",
+            "version": ">= 4.5.0"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-access<1.5.0",
+            "name": "invenio-access<1.5.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-accounts<2.1.0",
+            "name": "invenio-accounts<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-admin<1.4.0",
+            "name": "invenio-admin<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-app<1.4.0",
+            "name": "invenio-app<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-assets<1.4.0",
+            "name": "invenio-assets<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-base<1.3.0",
+            "name": "invenio-base<1.3.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-cache<1.2.0",
+            "name": "invenio-cache<1.2.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-celery<1.3.0",
+            "name": "invenio-celery<1.3.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-config<1.1.0",
+            "name": "invenio-config<1.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-db[mysql",
+            "name": "invenio-db[mysql",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-files-rest<1.4.0",
+            "name": "invenio-files-rest<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-formatter<1.2.0",
+            "name": "invenio-formatter<1.2.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-i18n<1.4.0",
+            "name": "invenio-i18n<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-indexer<2.1.0",
+            "name": "invenio-indexer<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-jsonschemas<1.2.0",
+            "name": "invenio-jsonschemas<1.2.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-logging[sentry-sdk]<1.4.0",
+            "name": "invenio-logging[sentry-sdk]<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-mail<1.1.0",
+            "name": "invenio-mail<1.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-oaiserver<2.1.0",
+            "name": "invenio-oaiserver<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-oauth2server<1.4.0",
+            "name": "invenio-oauth2server<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-oauthclient<2.1.0",
+            "name": "invenio-oauthclient<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-pidstore<1.3.0",
+            "name": "invenio-pidstore<1.3.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-previewer<1.4.0",
+            "name": "invenio-previewer<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-rdm-records<0.39.0",
+            "name": "invenio-rdm-records<0.39.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-records-files<1.3.0",
+            "name": "invenio-records-files<1.3.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-records-rest<2.1.0",
+            "name": "invenio-records-rest<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-records-ui<1.3.0",
+            "name": "invenio-records-ui<1.3.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-records<2.1.0",
+            "name": "invenio-records<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-rest<1.3.0",
+            "name": "invenio-rest<1.3.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-s3",
+            "name": "invenio-s3",
+            "runtimePlatform": "Python 3",
+            "version": "~= 1.0.5"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-search-ui<2.2.0",
+            "name": "invenio-search-ui<2.2.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-search[elasticsearch7]<3.0.0",
+            "name": "invenio-search[elasticsearch7]<3.0.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-search[opensearch1]<3.0.0",
+            "name": "invenio-search[opensearch1]<3.0.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-theme<1.4.0",
+            "name": "invenio-theme<1.4.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "invenio-userprofiles<2.1.0",
+            "name": "invenio-userprofiles<2.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "postgresql]<1.1.0",
+            "name": "postgresql]<1.1.0",
+            "runtimePlatform": "Python 3"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "pytest-black",
+            "name": "pytest-black",
+            "runtimePlatform": "Python 3",
+            "version": ">= 0.3.0"
+        },
+        {
+            "@type": "SoftwareApplication",
+            "identifier": "pytest-invenio",
+            "name": "pytest-invenio",
+            "runtimePlatform": "Python 3",
+            "version": "~= 2.0.0"
+        }
+    ],
+    "url": "https://github.com/inveniosoftware/invenio-app-rdm",
+    "version": "10.0.0.dev8"
+}
