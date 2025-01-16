@@ -14,7 +14,7 @@ import { i18next } from "@translations/invenio_app_rdm/i18next";
 import { SuccessIcon } from "@js/invenio_communities/members";
 import {
   RadioField,
-  TextAreaField,
+  RichInputField,
   http,
   withCancel,
   ErrorMessage,
@@ -95,7 +95,7 @@ export class AccessRequestsTab extends Component {
         {({ values, handleSubmit }) => {
           return (
             <>
-              <Modal.Content>
+              <Modal.Content className="share-content">
                 {error && (
                   <ErrorMessage
                     header={i18next.t("Unable to change the access request settings.")}
@@ -153,15 +153,15 @@ export class AccessRequestsTab extends Component {
                       </Grid.Row>
                       <Grid.Row>
                         <Grid.Column>
+                          <h5>{i18next.t("Accept conditions")}</h5>
+                          <label className="helptext mb-0 mt-10">
+                            {i18next.t(
+                              "Optional. Specify conditions under which you approve access. This message will be " +
+                                "visible for any user when requesting access to this record."
+                            )}
+                          </label>
                           <Form.Field>
-                            <TextAreaField
-                              placeholder={i18next.t(
-                                "Optional. Specify conditions under which you approve access. This message will be " +
-                                  "visible for any user when requesting access to this record."
-                              )}
-                              fieldPath="accept_conditions_text"
-                              rows={6}
-                            />
+                            <RichInputField fieldPath="accept_conditions_text" />
                           </Form.Field>
                         </Grid.Column>
                       </Grid.Row>

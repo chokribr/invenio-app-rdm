@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2019-2020 CERN.
+# Copyright (C) 2019-2024 CERN.
 # Copyright (C) 2019-2020 Northwestern University.
 # Copyright (C)      2021 TU Wien.
+# Copyright (C) 2024 Graz University of Technology.
 #
 # Invenio App RDM is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
@@ -14,6 +15,8 @@ from os.path import splitext
 import idutils
 from babel.numbers import format_compact_decimal, format_decimal
 from flask import current_app, url_for
+from invenio_base.utils import obj_or_import_string
+from invenio_i18n import get_locale
 from invenio_previewer.views import is_previewable
 from invenio_records_files.api import FileObject
 from invenio_records_permissions.policies import get_record_permission_policy
@@ -111,6 +114,9 @@ def order_entries(files):
             return files_.pop(idx)
 
         files = [get_file(key) for key in order]
+    else:
+        # sort alphabetically by filekey
+        files = sorted(files, key=lambda x: x["key"].lower())
 
     return files
 
@@ -163,7 +169,7 @@ def namespace_url(field):
     return namespaces[namespace] + namespace_value
 
 
-def custom_fields_search(field, field_value):
+def custom_fields_search(field, field_value, field_cfg=None):
     """Get custom field search url."""
     namespace_array = field.split(":")
     namespace = namespace_array[0]
@@ -172,7 +178,35 @@ def custom_fields_search(field, field_value):
     if not namespaces.get(namespace):
         return None
 
-    namespace_string = "\:".join(namespace_array)
+    localised_title = (field_cfg or {}).get("locale")
+    if localised_title:
+        locale = get_locale()
+        if not locale:
+            locale = current_app.config.get("BABEL_DEFAULT_LOCALE", "en")
+        # example: cern:experiments.title.en
+        # the \ is necessary for the lucene syntax but produces a SyntaxWarning.
+        # The r marks the string as raw and prevents the warning
+        # https://docs.python.org/3/reference/lexical_analysis.html#escape-sequences
+        namespace_string = r"\:".join(namespace_array) + f".{localised_title}.{locale}"
+    else:
+        namespace_string = r"\:".join(namespace_array)
+
     return url_for(
         "invenio_search_ui.search", q=f"custom_fields.{namespace_string}:{field_value}"
     )
+
+
+def transform_record(record, serializer, module=None, throws=True, **kwargs):
+    """Transform a record using a serializer."""
+    try:
+        module = module or "invenio_rdm_records.resources.serializers"
+        import_str = f"{module}:{serializer}"
+        serializer = obj_or_import_string(import_str)
+        if serializer:
+            return serializer().dump_obj(record)
+        if throws:
+            raise Exception("No serializer found.")
+    except Exception:
+        current_app.logger.error("Record transformation failed.")
+        if throws:
+            raise

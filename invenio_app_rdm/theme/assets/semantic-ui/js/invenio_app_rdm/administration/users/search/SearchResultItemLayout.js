@@ -1,17 +1,16 @@
 /*
  * This file is part of Invenio.
- * Copyright (C) 2022 CERN.
+ * Copyright (C) 2022-2024 CERN.
  *
  * Invenio is free software; you can redistribute it and/or modify it
  * under the terms of the MIT License; see LICENSE file for more details.
  */
 
 import { BoolFormatter, DateFormatter } from "@js/invenio_administration";
-import { SetQuotaAction } from "../../components/SetQuotaAction";
 import { UserActions } from "../UserActions";
 import PropTypes from "prop-types";
 import React, { Component } from "react";
-import { Table, Button } from "semantic-ui-react";
+import { Table, Dropdown, Icon } from "semantic-ui-react";
 import { withState } from "react-searchkit";
 import { AdminUIRoutes } from "@js/invenio_administration/src/routes";
 import { UserListItemCompact } from "react-invenio-forms";
@@ -32,11 +31,7 @@ class SearchResultItemComponent extends Component {
         {/*We pass user ID to bulk actions - user moderation API takes user IDs*/}
         {/*<SearchResultsRowCheckbox rowId={userId} data={result} />*/}
         {/*</Table.Cell>*/}
-        <Table.Cell
-          key={`user-column-${result.id}`}
-          data-label={i18next.t("Username")}
-          className="word-break-all"
-        >
+        <Table.Cell key={`user-column-${result.id}`} data-label={i18next.t("User")}>
           <UserListItemCompact
             user={result}
             id={result.id}
@@ -47,46 +42,96 @@ class SearchResultItemComponent extends Component {
             )}
           />
         </Table.Cell>
+        <Table.Cell key={`user-name-${result.id}`} data-label={i18next.t("Username")}>
+          @{result.username}
+          {result.identities.orcid && (
+            <a href={`https://orcid.org/${result.identities.orcid}`}>
+              <img
+                className="inline-id-icon ml-5"
+                src="/static/images/orcid.svg"
+                alt="ORCID"
+              />
+            </a>
+          )}
+          {result.identities.github && (
+            <a href={`https://api.github.com/user/${result.identities.github}`}>
+              <Icon
+                title={i18next.t("GitHub")}
+                name="github"
+                color="black"
+                className="ml-5"
+              />
+            </a>
+          )}
+        </Table.Cell>
         <Table.Cell
           key={`user-email-${result.id}`}
           data-label={i18next.t("Email")}
           collapsing
           className="word-break-all"
         >
+          <BoolFormatter
+            tooltip={i18next.t("New")}
+            icon="hourglass end"
+            color="grey"
+            value={result.domaininfo.status === 1}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("Moderated")}
+            icon="eye"
+            color="grey"
+            value={result.domaininfo.status === 2}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("Verified")}
+            icon="check"
+            color="green"
+            value={result.domaininfo.status === 3}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("Blocked")}
+            icon="ban"
+            color="red"
+            value={result.domaininfo.status === 4}
+          />
           {result.email}
         </Table.Cell>
         <Table.Cell
           collapsing
-          key={`user-active-${result.id}`}
-          data-label={i18next.t("Active")}
+          key={`user-status-${result.id}`}
+          data-label={i18next.t("Status")}
           className="word-break-all"
         >
-          <BoolFormatter icon="check" color="green" value={result.active} />
-          <BoolFormatter icon="close" color="red" value={!result.active} />
-        </Table.Cell>
-        <Table.Cell
-          collapsing
-          key={`user-confirmed-${result.id}`}
-          data-label={i18next.t("Confirmed")}
-          className="word-break-all"
-        >
-          {result.confirmed_at}
-        </Table.Cell>
-        <Table.Cell
-          collapsing
-          key={`user-verified-${result.id}`}
-          data-label={i18next.t("Verified at")}
-          className="word-break-all"
-        >
-          {result.verified_at}
-        </Table.Cell>
-        <Table.Cell
-          collapsing
-          key={`user-blocked-${result.id}`}
-          data-label={i18next.t("Blocked at")}
-          className="word-break-all"
-        >
-          {result.blocked_at}
+          <BoolFormatter
+            tooltip={i18next.t("Verified")}
+            icon="star"
+            color="yellow"
+            value={result.status === "verified"}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("Confirmed")}
+            icon="check"
+            color="green"
+            value={result.status === "confirmed"}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("New")}
+            icon="hourglass"
+            color="grey"
+            value={result.status === "new"}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("Inactive")}
+            icon="times"
+            color="red"
+            value={result.status === "inactive"}
+          />
+          <BoolFormatter
+            tooltip={i18next.t("Blocked")}
+            icon="ban"
+            color="red"
+            value={result.status === "blocked"}
+          />
         </Table.Cell>
         <Table.Cell
           collapsing
@@ -104,16 +149,40 @@ class SearchResultItemComponent extends Component {
         >
           <DateFormatter value={result.updated} />
         </Table.Cell>
-
+        <Table.Cell
+          collapsing
+          key={`user-links-${result.id}`}
+          data-label={i18next.t("Links")}
+          className="word-break-all"
+        >
+          <Dropdown text={<Icon name="eye" />}>
+            <Dropdown.Menu>
+              <Dropdown.Item
+                as="a"
+                href={result.links.admin_records_html}
+                text={i18next.t("Records")}
+              />
+              <Dropdown.Item
+                as="a"
+                href={result.links.admin_drafts_html}
+                text={i18next.t("Drafts")}
+              />
+              <Dropdown.Item
+                as="a"
+                href={result.links.admin_moderation_html}
+                text={i18next.t("Moderation")}
+              />
+            </Dropdown.Menu>
+          </Dropdown>
+        </Table.Cell>
         <Table.Cell collapsing>
-          <Button.Group basic widths={4} compact className="margined">
-            <SetQuotaAction
-              successCallback={this.refreshAfterAction}
-              apiUrl={`/api/users/${result.id}/quota`}
-              resource={result}
-            />
-            <UserActions user={result} successCallback={this.refreshAfterAction} />
-          </Button.Group>
+          <UserActions
+            useDropdown
+            user={result}
+            successCallback={this.refreshAfterAction}
+            displayImpersonateUser
+            displayQuota
+          />
         </Table.Cell>
       </Table.Row>
     );

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2019-2021 CERN.
+# Copyright (C) 2019-2024 CERN.
 # Copyright (C) 2019-2021 Northwestern University.
 # Copyright (C)      2021 TU Wien.
 #
@@ -11,14 +11,18 @@
 
 from functools import wraps
 
-from flask import g, redirect, request, url_for
+from flask import g, make_response, redirect, request, session, url_for
+from flask_login import login_required
 from invenio_communities.communities.resources.serializer import (
     UICommunityJSONSerializer,
 )
 from invenio_communities.proxies import current_communities
+from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_rdm_records.proxies import current_rdm_records
 from invenio_records_resources.services.errors import PermissionDeniedError
 from sqlalchemy.orm.exc import NoResultFound
+
+from invenio_app_rdm.urls import record_url_for
 
 
 def service():
@@ -66,13 +70,31 @@ def pass_draft(expand=False):
         @wraps(f)
         def view(**kwargs):
             pid_value = kwargs.get("pid_value")
-            draft = service().read_draft(
-                id_=pid_value,
-                identity=g.identity,
-                expand=expand,
-            )
-            kwargs["draft"] = draft
-            return f(**kwargs)
+            try:
+                record_service = service()
+                draft = record_service.read_draft(
+                    id_=pid_value,
+                    identity=g.identity,
+                    expand=expand,
+                )
+                kwargs["draft"] = draft
+                kwargs["files_locked"] = (
+                    record_service.config.lock_edit_published_files(
+                        record_service, g.identity, draft=draft, record=draft._record
+                    )
+                )
+                return f(**kwargs)
+            except PIDDoesNotExistError:
+                # Redirect to /records/:id because users are interchangeably
+                # using /records/:id and /uploads/:id when sharing links, so in
+                # case a draft doesn't exists, when check if the record exists
+                # always.
+                return redirect(
+                    url_for(
+                        "invenio_app_rdm_records.record_detail",
+                        pid_value=pid_value,
+                    )
+                )
 
         return view
 
@@ -84,11 +106,7 @@ def pass_is_preview(f):
 
     @wraps(f)
     def view(**kwargs):
-        preview = request.args.get("preview")
-        is_preview = False
-        if preview == "1":
-            is_preview = True
-        kwargs["is_preview"] = is_preview
+        kwargs["is_preview"] = request.args.get("preview") == "1"
         return f(**kwargs)
 
     return view
@@ -144,15 +162,15 @@ def pass_record_or_draft(expand=False):
                 "identity": g.identity,
                 "expand": expand,
             }
-            if include_deleted:
-                read_kwargs.update({"include_deleted": include_deleted})
 
             if is_preview:
                 try:
                     record = service().read_draft(**read_kwargs)
                 except NoResultFound:
                     try:
-                        record = service().read(**read_kwargs)
+                        record = service().read(
+                            include_deleted=include_deleted, **read_kwargs
+                        )
                     except NoResultFound:
                         # If the parent pid is being used we can get the id of the latest record and redirect
                         latest_version = service().read_latest(**read_kwargs)
@@ -165,7 +183,9 @@ def pass_record_or_draft(expand=False):
                         )
             else:
                 try:
-                    record = service().read(**read_kwargs)
+                    record = service().read(
+                        include_deleted=include_deleted, **read_kwargs
+                    )
                 except NoResultFound:
                     # If the parent pid is being used we can get the id of the latest record and redirect
                     latest_version = service().read_latest(**read_kwargs)
@@ -313,7 +333,6 @@ def pass_draft_files(f):
             pid_value = kwargs.get("pid_value")
             files = draft_files_service().list_files(id_=pid_value, identity=g.identity)
             kwargs["draft_files"] = files
-
         except PermissionDeniedError:
             # this is handled here because we don't want a 404 on the landing
             # page when a user is allowed to read the metadata but not the
@@ -344,3 +363,43 @@ def pass_draft_community(f):
         return f(**kwargs)
 
     return view
+
+
+def add_signposting(f):
+    """Add signposting link to view's response headers."""
+
+    @wraps(f)
+    def view(*args, **kwargs):
+        response = make_response(f(*args, **kwargs))
+
+        # Relies on other decorators having operated before it
+        pid_value = kwargs["pid_value"]
+        signposting_link = record_url_for(_app="api", pid_value=pid_value)
+
+        response.headers["Link"] = (
+            f'<{signposting_link}> ; rel="linkset" ; type="application/linkset+json"'  # fmt: skip
+        )
+        return response
+
+    return view
+
+
+def secret_link_or_login_required():
+    """Skip login redirection check for requests with secret links.
+
+    If access has been granted via a secret link, then permissions are checked
+    in the dedicated view.
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def view(**kwargs):
+            secret_link_token_arg = "token"
+            session_token = session.get(secret_link_token_arg, None)
+            if session_token is None:
+                login_required(f)
+            return f(**kwargs)
+
+        return view
+
+    return decorator

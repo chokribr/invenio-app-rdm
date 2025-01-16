@@ -1,19 +1,20 @@
 // This file is part of InvenioRDM
-// Copyright (C) 2021 CERN.
+// Copyright (C) 2021-2024 CERN.
 // Copyright (C) 2021 Graz University of Technology.
 // Copyright (C) 2021 TU Wien
 //
 // Invenio RDM Records is free software; you can redistribute it and/or modify it
 // under the terms of the MIT License; see LICENSE file for more details.
 
-import axios from "axios";
 import _debounce from "lodash/debounce";
+import _escape from "lodash/escape";
 import React, { Component } from "react";
 import PropTypes from "prop-types";
 import { Placeholder, Dropdown, Message } from "semantic-ui-react";
 import { withCancel } from "react-invenio-forms";
 import { CopyButton } from "../components/CopyButton";
 import { i18next } from "@translations/invenio_app_rdm/i18next";
+import { http } from "react-invenio-forms";
 
 export class RecordCitationField extends Component {
   constructor(props) {
@@ -27,8 +28,8 @@ export class RecordCitationField extends Component {
   }
 
   componentDidMount() {
-    const { record, defaultStyle } = this.props;
-    this.getCitation(record, defaultStyle);
+    const { record, defaultStyle, includeDeleted } = this.props;
+    this.getCitation(record, defaultStyle, includeDeleted);
   }
 
   componentWillUnmount() {
@@ -51,25 +52,26 @@ export class RecordCitationField extends Component {
     return <Message negative>{message}</Message>;
   };
 
-  fetchCitation = async (record, style) => {
-    return await axios(
-      `${record.links.self}?locale=${navigator.language}&style=${style}`,
-      {
-        headers: {
-          Accept: "text/x-bibliography",
-        },
-      }
-    );
+  fetchCitation = async (record, style, includeDeleted) => {
+    const includeDeletedParam = includeDeleted === true ? "&include_deleted=1" : "";
+    const url = `${record.links.self}?locale=${navigator.language}&style=${style}${includeDeletedParam}`;
+    return await http.get(url, {
+      headers: {
+        Accept: "text/x-bibliography",
+      },
+    });
   };
 
-  getCitation = async (record, style) => {
+  getCitation = async (record, style, includeDeleted) => {
     this.setState({
       loading: true,
       citation: "",
       error: "",
     });
 
-    this.cancellableFetchCitation = withCancel(this.fetchCitation(record, style));
+    this.cancellableFetchCitation = withCancel(
+      this.fetchCitation(record, style, includeDeleted)
+    );
 
     try {
       const response = await this.cancellableFetchCitation.promise;
@@ -89,9 +91,8 @@ export class RecordCitationField extends Component {
   };
 
   render() {
-    const { styles, record, defaultStyle } = this.props;
+    const { styles, record, defaultStyle, includeDeleted } = this.props;
     const { loading, citation, error } = this.state;
-
     const citationOptions = styles.map((style) => {
       return {
         key: style[0],
@@ -100,10 +101,27 @@ export class RecordCitationField extends Component {
       };
     });
 
+    // convert links in text to clickable links (ignoring punctuations at the end)
+    const escapedCitation = _escape(citation); // escape html characters
+    const urlRegex = /(https?:\/\/[^\s,;]+(?=[^\s,;]*))/g;
+    const urlizedCitation = escapedCitation.replace(urlRegex, (url) => {
+      // remove trailing dot
+      let trailingDot = "";
+      if (url.endsWith(".")) {
+        trailingDot = ".";
+        url = url.slice(0, -1);
+      }
+      return `<a href="${url}" target="_blank">${url}</a>${trailingDot}`;
+    });
+
     return (
       <div>
         <div id="citation-text" className="wrap-overflowing-text rel-mb-2">
-          {loading ? this.placeholderLoader() : citation}
+          {loading ? (
+            this.placeholderLoader()
+          ) : (
+            <div dangerouslySetInnerHTML={{ __html: urlizedCitation }} />
+          )}
         </div>
 
         <div className="auto-column-grid no-wrap">
@@ -118,7 +136,7 @@ export class RecordCitationField extends Component {
               options={citationOptions}
               selection
               onChange={_debounce(
-                (event, data) => this.getCitation(record, data.value),
+                (event, data) => this.getCitation(record, data.value, includeDeleted),
                 500
               )}
             />
@@ -135,4 +153,5 @@ RecordCitationField.propTypes = {
   styles: PropTypes.array.isRequired,
   record: PropTypes.object.isRequired,
   defaultStyle: PropTypes.string.isRequired,
+  includeDeleted: PropTypes.bool.isRequired,
 };

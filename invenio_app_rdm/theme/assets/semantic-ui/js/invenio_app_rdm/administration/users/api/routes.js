@@ -21,8 +21,16 @@ const APIRoutesGenerators = {
     return `/api/users/${_get(user, idKeyPath)}/approve`;
   },
 
+  activate: (user, idKeyPath = "id") => {
+    return `/api/users/${_get(user, idKeyPath)}/activate`;
+  },
+
   deactivate: (user, idKeyPath = "id") => {
     return `/api/users/${_get(user, idKeyPath)}/deactivate`;
+  },
+
+  impersonate: (user, idKeyPath = "id") => {
+    return `/api/users/${_get(user, idKeyPath)}/impersonate`;
   },
 };
 export const APIRoutes = {

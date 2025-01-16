@@ -10,6 +10,7 @@
 """Views related to records and deposits."""
 
 from flask import Blueprint
+from invenio_drafts_resources.resources.records.errors import DraftNotCreatedError
 from invenio_pidstore.errors import (
     PIDDeletedError,
     PIDDoesNotExistError,
@@ -19,11 +20,12 @@ from invenio_rdm_records.services.errors import RecordDeletedException
 from invenio_records_resources.services.errors import (
     FileKeyNotFoundError,
     PermissionDeniedError,
+    RecordPermissionDeniedError,
 )
 
 from ...theme.views import create_url_rule
 from ..searchapp import search_app_context
-from .deposits import deposit_create, deposit_edit
+from .deposits import community_upload, deposit_create, deposit_edit
 from .filters import (
     can_list_files,
     compact_number,
@@ -38,9 +40,11 @@ from .filters import (
     pid_url,
     select_preview_file,
     to_previewer_files,
+    transform_record,
     truncate_number,
 )
 from .records import (
+    draft_not_found_error,
     not_found_error,
     record_detail,
     record_export,
@@ -50,6 +54,7 @@ from .records import (
     record_latest,
     record_media_file_download,
     record_permission_denied_error,
+    record_thumbnail,
     record_tombstone_error,
 )
 
@@ -60,6 +65,7 @@ from .records import (
 def create_blueprint(app):
     """Register blueprint routes on app."""
     routes = app.config.get("APP_RDM_ROUTES")
+    communities_routes = app.config.get("COMMUNITIES_ROUTES")
 
     blueprint = Blueprint(
         "invenio_app_rdm_records",
@@ -113,6 +119,12 @@ def create_blueprint(app):
             default_view_func=record_file_download,
         )
     )
+    blueprint.add_url_rule(
+        **create_url_rule(
+            routes["record_thumbnail"],
+            default_view_func=record_thumbnail,
+        )
+    )
 
     blueprint.add_url_rule(
         **create_url_rule(
@@ -135,14 +147,25 @@ def create_blueprint(app):
         )
     )
 
+    blueprint.add_url_rule(
+        **create_url_rule(
+            communities_routes["upload"],
+            default_view_func=community_upload,
+        )
+    )
+
     # Register error handlers
     blueprint.register_error_handler(PIDDeletedError, record_tombstone_error)
     blueprint.register_error_handler(PIDDoesNotExistError, not_found_error)
     blueprint.register_error_handler(PIDUnregistered, not_found_error)
     blueprint.register_error_handler(KeyError, not_found_error)
     blueprint.register_error_handler(FileKeyNotFoundError, not_found_error)
+    blueprint.register_error_handler(DraftNotCreatedError, draft_not_found_error)
     blueprint.register_error_handler(
         PermissionDeniedError, record_permission_denied_error
+    )
+    blueprint.register_error_handler(
+        RecordPermissionDeniedError, record_permission_denied_error
     )
     blueprint.register_error_handler(RecordDeletedException, record_tombstone_error)
 
@@ -161,6 +184,7 @@ def create_blueprint(app):
     blueprint.add_app_template_filter(truncate_number)
     blueprint.add_app_template_filter(namespace_url)
     blueprint.add_app_template_filter(custom_fields_search)
+    blueprint.add_app_template_filter(transform_record)
 
     # Register context processor
     blueprint.app_context_processor(search_app_context)

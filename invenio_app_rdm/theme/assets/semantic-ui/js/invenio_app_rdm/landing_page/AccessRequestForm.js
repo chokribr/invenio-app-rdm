@@ -28,6 +28,13 @@ export class AccessRequestForm extends Component {
     // nullable().required() is needed to avoid ``null`` type message errors.
     this.accessRequestSchema = Yup.object({
       email: Yup.string().email().nullable().required(),
+      full_name: Yup.string().nullable(),
+      message: Yup.string().nullable(),
+      consent_to_share_personal_data: Yup.bool().required(),
+    });
+
+    this.anonymousAccessRequestSchema = Yup.object({
+      email: Yup.string().email().nullable().required(),
       full_name: Yup.string().nullable().required(),
       message: Yup.string().nullable(),
       consent_to_share_personal_data: Yup.bool().required(),
@@ -105,7 +112,7 @@ export class AccessRequestForm extends Component {
 
   render() {
     const { error, loading, modalOpen } = this.state;
-    const { isAnonymous, fullName } = this.props;
+    const { isAnonymous } = this.props;
     const disablePersonalDataField = !isAnonymous;
     return (
       <>
@@ -113,7 +120,9 @@ export class AccessRequestForm extends Component {
           onSubmit={this.handleSubmit}
           enableReinitialize
           initialValues={this.initFormValues()}
-          validationSchema={this.accessRequestSchema}
+          validationSchema={
+            isAnonymous ? this.anonymousAccessRequestSchema : this.accessRequestSchema
+          }
           validateOnChange={false}
           validateOnBlur={false}
         >
@@ -133,36 +142,38 @@ export class AccessRequestForm extends Component {
 
                 <Form className="full-width">
                   <Grid relaxed>
-                    <Grid.Column width={8}>
-                      <Form.Field>
-                        <TextField
-                          required
-                          fieldPath="email"
-                          label="Your email address"
-                          placeholder={i18next.t("Email address")}
-                          icon="at"
-                          iconPosition="left"
-                          value={values.email}
-                          type="input"
-                          disabled={disablePersonalDataField}
-                        />
-                      </Form.Field>
-                    </Grid.Column>
-                    <Grid.Column width={8}>
-                      <Form.Field>
-                        <TextField
-                          required
-                          fieldPath="full_name"
-                          label={i18next.t("Your full name")}
-                          placeholder={i18next.t("Full name")}
-                          icon="address card"
-                          iconPosition="left"
-                          value={values.full_name}
-                          type="input"
-                          disabled={disablePersonalDataField && !isEmpty(fullName)}
-                        />
-                      </Form.Field>
-                    </Grid.Column>
+                    {!disablePersonalDataField && (
+                      <>
+                        <Grid.Column mobile={16} tablet={8} computer={8}>
+                          <Form.Field>
+                            <TextField
+                              required
+                              fieldPath="email"
+                              label="Your email address"
+                              placeholder={i18next.t("Email address")}
+                              icon="at"
+                              iconPosition="left"
+                              value={values.email}
+                              type="input"
+                            />
+                          </Form.Field>
+                        </Grid.Column>
+                        <Grid.Column mobile={16} tablet={8} computer={8}>
+                          <Form.Field>
+                            <TextField
+                              required
+                              fieldPath="full_name"
+                              label={i18next.t("Your full name")}
+                              placeholder={i18next.t("Full name")}
+                              icon="address card"
+                              iconPosition="left"
+                              value={values.full_name}
+                              type="input"
+                            />
+                          </Form.Field>
+                        </Grid.Column>
+                      </>
+                    )}
                     <Grid.Column width={16}>
                       <Form.Field>
                         <TextAreaField
@@ -187,7 +198,7 @@ export class AccessRequestForm extends Component {
                     </Grid.Column>
                   </Grid>
                 </Form>
-                <Grid>
+                <Grid className="rel-mt-1">
                   <Grid.Column width={16} textAlign="center">
                     <Button
                       size="small"

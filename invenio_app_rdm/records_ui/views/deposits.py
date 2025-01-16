@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2019-2021 CERN.
+# Copyright (C) 2019-2024 CERN.
 # Copyright (C) 2019-2021 Northwestern University.
 # Copyright (C)      2021 TU Wien.
 # Copyright (C) 2022 KTH Royal Institute of Technology
-# Copyright (C) 2023 Graz University of Technology.
+# Copyright (C) 2023-2024 Graz University of Technology.
 #
 # Invenio App RDM is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
@@ -13,16 +13,19 @@
 
 from copy import deepcopy
 
-from flask import current_app, g, render_template
+from flask import current_app, g, redirect
 from flask_login import login_required
+from invenio_communities.errors import CommunityDeletedError
 from invenio_communities.proxies import current_communities
+from invenio_communities.views.communities import render_community_theme_template
 from invenio_i18n import lazy_gettext as _
 from invenio_i18n.ext import current_i18n
 from invenio_rdm_records.proxies import current_rdm_records
-from invenio_rdm_records.records.api import get_quota
+from invenio_rdm_records.records.api import get_files_quota
 from invenio_rdm_records.resources.serializers import UIJSONSerializer
 from invenio_rdm_records.services.schemas import RDMRecordSchema
 from invenio_rdm_records.services.schemas.utils import dump_empty
+from invenio_records_resources.services.errors import PermissionDeniedError
 from invenio_search.engine import dsl
 from invenio_vocabularies.proxies import current_service as vocabulary_service
 from invenio_vocabularies.records.models import VocabularyScheme
@@ -30,7 +33,12 @@ from marshmallow_utils.fields.babel import gettext_from_dict
 from sqlalchemy.orm import load_only
 
 from ..utils import set_default_value
-from .decorators import pass_draft, pass_draft_community, pass_draft_files
+from .decorators import (
+    pass_draft,
+    pass_draft_community,
+    pass_draft_files,
+    secret_link_or_login_required,
+)
 from .filters import get_scheme_label
 
 
@@ -52,6 +60,12 @@ def get_form_pids_config():
             continue
         record_pid_config = current_app.config["RDM_PERSISTENT_IDENTIFIERS"]
         scheme_label = record_pid_config.get(scheme, {}).get("label", scheme)
+        is_doi_required = record_pid_config.get(scheme, {}).get("required")
+        default_selected = (
+            record_pid_config.get(scheme, {}).get("ui", {}).get("default_selected")
+        )
+        if is_doi_required and default_selected == "not_needed":
+            default_selected = "yes"
         pids_provider = {
             "scheme": scheme,
             "field_label": "Digital Object Identifier",
@@ -74,6 +88,7 @@ def get_form_pids_config():
                 "A {scheme_label} allows your upload to be easily and "
                 "unambiguously cited. Example: 10.1234/foo.bar"
             ).format(scheme_label=scheme_label),
+            "default_selected": default_selected,
         }
         pids_providers.append(pids_provider)
 
@@ -146,9 +161,7 @@ class VocabulariesOptions:
             {
                 "icon": hit.get("icon", ""),
                 "id": hit["id"],
-                "subtype_name": self._get_type_subtype_label(hit, type_labels)[
-                    1
-                ],  # noqa
+                "subtype_name": self._get_type_subtype_label(hit, type_labels)[1],
                 "type_name": self._get_type_subtype_label(hit, type_labels)[0],
             }
             for hit in subset_resource_types.to_dict()["hits"]["hits"]
@@ -179,7 +192,7 @@ class VocabulariesOptions:
         """Dump subjects vocabulary (limitTo really)."""
         subjects = (
             VocabularyScheme.query.filter_by(parent_id="subjects")
-            .options(load_only("id"))
+            .options(load_only(VocabularyScheme.id))
             .all()
         )
         limit_to = [{"text": "All", "value": "all"}]
@@ -285,6 +298,9 @@ def load_custom_fields():
             if field_error_label:
                 error_labels[f"custom_fields.{field['field']}"] = field_error_label
             if getattr(field_instance, "relation_cls", None):
+                sort_by = field.get("props", {}).get("sort_by")
+                if sort_by:
+                    field_instance.sort_by = sort_by
                 # add vocabulary options to field's properties
                 field["props"]["options"] = field_instance.options(g.identity)
                 # mark field as vocabulary
@@ -351,7 +367,16 @@ def new_record():
     record = dump_empty(RDMRecordSchema)
     record["files"] = {"enabled": current_app.config.get("RDM_DEFAULT_FILES_ENABLED")}
     if "doi" in current_rdm_records.records_service.config.pids_providers:
-        record["pids"] = {"doi": {"provider": "external", "identifier": ""}}
+        if (
+            current_app.config["RDM_PERSISTENT_IDENTIFIERS"]
+            .get("doi", {})
+            .get("ui", {})
+            .get("default_selected")
+            == "yes"  # yes, no or not_needed
+        ):
+            record["pids"] = {"doi": {"provider": "external", "identifier": ""}}
+        else:
+            record["pids"] = {}
     else:
         record["pids"] = {}
     record["status"] = "draft"
@@ -368,15 +393,43 @@ def new_record():
 @pass_draft_community
 def deposit_create(community=None):
     """Create a new deposit."""
-    return render_template(
+    can_create = current_rdm_records.records_service.check_permission(
+        g.identity, "create"
+    )
+    if not can_create:
+        raise PermissionDeniedError()
+
+    community_theme = None
+    if community is not None:
+        community_theme = community.get("theme", {})
+
+    community_use_jinja_header = bool(community_theme)
+    dashboard_routes = current_app.config["APP_RDM_USER_DASHBOARD_ROUTES"]
+    is_doi_required = (
+        current_app.config.get("RDM_PERSISTENT_IDENTIFIERS", {})
+        .get("doi", {})
+        .get("required")
+    )
+    return render_community_theme_template(
         current_app.config["APP_RDM_DEPOSIT_FORM_TEMPLATE"],
-        forms_config=get_form_config(createUrl="/api/records", quota=get_quota()),
+        theme=community_theme,
+        forms_config=get_form_config(
+            dashboard_routes=dashboard_routes,
+            createUrl="/api/records",
+            quota=get_files_quota(),
+            hide_community_selection=community_use_jinja_header,
+            is_doi_required=is_doi_required,
+        ),
         searchbar_config=dict(searchUrl=get_search_url()),
         record=new_record(),
+        community=community,
+        community_use_jinja_header=community_use_jinja_header,
         files=dict(default_preview=None, entries=[], links={}),
         preselectedCommunity=community,
+        files_locked=False,
         permissions=get_record_permissions(
             [
+                "manage",
                 "manage_files",
                 "delete_draft",
                 "manage_record_access",
@@ -385,27 +438,85 @@ def deposit_create(community=None):
     )
 
 
-@login_required
+@secret_link_or_login_required()
 @pass_draft(expand=True)
 @pass_draft_files
-def deposit_edit(pid_value, draft=None, draft_files=None):
+def deposit_edit(pid_value, draft=None, draft_files=None, files_locked=True):
     """Edit an existing deposit."""
+    # don't show draft's deposit form if the user can't edit it
+    service = current_rdm_records.records_service
+    can_edit_draft = service.check_permission(
+        g.identity, "update_draft", record=draft._record
+    )
+    if not can_edit_draft:
+        raise PermissionDeniedError()
+
     files_dict = None if draft_files is None else draft_files.to_dict()
     ui_serializer = UIJSONSerializer()
     record = ui_serializer.dump_obj(draft.to_dict())
 
-    return render_template(
+    community_theme = None
+    community = record.get("expanded", {}).get("parent", {}).get("review", {}).get(
+        "receiver"
+    ) or record.get("expanded", {}).get("parent", {}).get("communities", {}).get(
+        "default"
+    )
+
+    if community:
+        # TODO: handle deleted community
+        try:
+            community = current_communities.service.read(
+                id_=community["id"], identity=g.identity
+            )
+            community_theme = community.to_dict().get("theme", {})
+        except CommunityDeletedError:
+            pass
+
+    # show the community branded header when there is a theme and record is published
+    # for unpublished records we fallback to the react component so users can change
+    # communities
+    community_use_jinja_header = bool(community_theme)
+    dashboard_routes = current_app.config["APP_RDM_USER_DASHBOARD_ROUTES"]
+    is_doi_required = (
+        current_app.config.get("RDM_PERSISTENT_IDENTIFIERS", {})
+        .get("doi", {})
+        .get("required")
+    )
+    form_config = get_form_config(
+        apiUrl=f"/api/records/{pid_value}/draft",
+        dashboard_routes=dashboard_routes,
+        # maybe quota should be serialized into the record e.g for admins
+        quota=get_files_quota(draft._record),
+        # hide react community component
+        hide_community_selection=community_use_jinja_header,
+        is_doi_required=is_doi_required,
+    )
+
+    if is_doi_required and not record.get("pids", {}).get("doi"):
+        # if the DOI is required but there is no value, we set the default selected pid
+        # to no i.e. system should automatically mint a local DOI
+        if record["status"] == "new_version_draft":
+            doi_provider_config = [
+                pid_config
+                for pid_config in form_config["pids"]
+                if pid_config.get("scheme") == "doi"
+            ]
+            if doi_provider_config:
+                doi_provider_config[0]["default_selected"] = "no"
+
+    return render_community_theme_template(
         current_app.config["APP_RDM_DEPOSIT_FORM_TEMPLATE"],
-        forms_config=get_form_config(
-            apiUrl=f"/api/records/{pid_value}/draft",
-            # maybe quota should be serialized into the record e.g for admins
-            quota=get_quota(draft._record),
-        ),
+        theme=community_theme,
+        forms_config=form_config,
         record=record,
+        community=community,
+        community_use_jinja_header=community_use_jinja_header,
         files=files_dict,
         searchbar_config=dict(searchUrl=get_search_url()),
+        files_locked=files_locked,
         permissions=draft.has_permissions_to(
             [
+                "manage",
                 "new_version",
                 "delete_draft",
                 "manage_files",
@@ -413,3 +524,9 @@ def deposit_edit(pid_value, draft=None, draft_files=None):
             ]
         ),
     )
+
+
+def community_upload(pid_value):
+    """Redirection for upload to community."""
+    routes = current_app.config.get("APP_RDM_ROUTES")
+    return redirect(f"{routes['deposit_create']}?community={pid_value}")
